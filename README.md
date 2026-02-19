@@ -100,7 +100,7 @@ Login/register require **tenantId** (from `GET /api/auth/tenants`).
 ## Key technical decisions
 
 - **Multi-tenancy**: Shared DB + `tenant_id` on every row (documented in DEPLOYMENT.md). Chosen over separate schema/DB for simplicity and cost; all queries and mutations scoped by tenant; JWT includes tenantId.
-- **Auth**: JWT access (15 min) + refresh (7 d), tenantId in token; refresh tokens in DB. Argon2 for password hashing. Login/register require tenantId.
+- **Auth**: JWT access (15 min) + refresh (7 d), tenantId in token; refresh tokens in DB. bcryptjs for password hashing. Login/register require tenantId.
 - **Audit**: AuditLog table with user_id, tenant_id, action, resourceType, resourceId, beforeState, afterState (JSON), correlationId, createdAt. Correlation ID from header or generated per request.
 - **Workflow**: Booking statuses REQUESTED → APPROVED → ASSIGNED → COMPLETED (and CANCELLED). Admin approve+assign sets ASSIGNED. Escalation job (cron every 5 min) finds REQUESTED bookings older than BOOKING_ESCALATION_HOURS (default 24), sets escalatedAt, writes audit, sends email stub to admins.
 - **Caching**: In-memory TTL (default 1 min) for GET courses list, GET course by id, GET calendar. Key includes tenantId so tenants never share cache.

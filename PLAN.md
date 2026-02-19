@@ -3,7 +3,7 @@
 ## What was shipped
 
 ### Level 1 (Core)
-- Authentication & RBAC (Argon2, JWT access + refresh, route guards, backend RBAC).
+- Authentication & RBAC (bcryptjs, JWT access + refresh, route guards, backend RBAC).
 - Learning: Course → Module → Lesson (TEXT, QUIZ), quiz attempts and scoring, pagination and search.
 - Scheduling: availability, booking requests, admin approve/assign, weekly calendar, conflict detection, status flow.
 - Docker Compose, CI (lint, unit tests, build), backend unit + 2 integration tests, README/PLAN/CUTS/POSTMORTEM.
