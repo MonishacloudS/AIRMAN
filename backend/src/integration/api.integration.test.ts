@@ -22,13 +22,13 @@ beforeAll(async () => {
     create: { name: "Integration Test Tenant", slug: "integration-test-tenant" },
   });
   tenantId = tenant.id;
-  await prisma.quizAttempt.deleteMany({ where: { user: { tenantId_email: { tenantId, email: testUser.email } } } });
-  await prisma.booking.deleteMany({ where: { student: { tenantId_email: { tenantId, email: testUser.email } } } });
-  await prisma.user.deleteMany({ where: { tenantId_email: { tenantId, email: testUser.email } } });
+  await prisma.quizAttempt.deleteMany({ where: { user: { tenantId, email: testUser.email } } });
+  await prisma.booking.deleteMany({ where: { student: { tenantId, email: testUser.email } } });
+  await prisma.user.deleteMany({ where: { tenantId, email: testUser.email } });
 });
 
 afterAll(async () => {
-  await prisma.user.deleteMany({ where: { tenantId_email: { tenantId, email: testUser.email } } });
+  await prisma.user.deleteMany({ where: { tenantId, email: testUser.email } });
   await prisma.$disconnect();
 });
 
