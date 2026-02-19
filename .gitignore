@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+
+# Environment and secrets (never commit)
+.env
+.env.local
+.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Build and output
+dist/
+build/
+out/
+.next/
+*.tsbuildinfo
+
+# Logs and debug
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Testing and coverage
+coverage/
+.nyc_output/
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+
+
+
+
+# Prisma
+# (schema.prisma and migrations are committed; .env is not)
+
+# Optional: lockfiles – keep package-lock.json for reproducible installs
+# package-lock.json

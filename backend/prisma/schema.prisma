@@ -1,0 +1,254 @@
+// AIRMAN Core - Level 2: Multi-tenant, Audit, Workflow
+// Approach: Shared DB + tenant_id on every row (documented in README)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  INSTRUCTOR
+  ADMIN
+}
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String   // e.g. "Alpha Flight School", "Bravo Academy"
+  slug      String   @unique // e.g. "alpha", "bravo"
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  users                 User[]
+  courses                Course[]
+  instructorAvailability InstructorAvailability[]
+  bookings               Booking[]
+  auditLogs              AuditLog[]
+  flightEventLogs        FlightEventLog[]
+  featureFlags           FeatureFlag[]
+}
+
+model User {
+  id           String    @id @default(cuid())
+  tenantId     String    @map("tenant_id")
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  email        String    // unique within tenant (enforced in app or composite)
+  passwordHash String    @map("password_hash")
+  role         Role
+  approved     Boolean   @default(false)
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  refreshTokens RefreshToken[]
+  courses       Course[]         @relation("CourseInstructor")
+  availability  InstructorAvailability[]
+  bookings      Booking[]        @relation("StudentBookings")
+  assignedBookings Booking[]     @relation("InstructorAssignedBookings")
+  quizAttempts  QuizAttempt[]
+  auditLogs     AuditLog[]
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+}
+
+// ---- Audit (Aviation-Grade) ----
+model AuditLog {
+  id            String   @id @default(cuid())
+  tenantId      String   @map("tenant_id")
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId        String   @map("user_id")
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action        String   // e.g. "user.login", "course.create", "booking.approve"
+  resourceType  String?  @map("resource_type") // e.g. "course", "booking"
+  resourceId    String?  @map("resource_id")
+  beforeState   String?  @map("before_state")  @db.Text // JSON
+  afterState    String?  @map("after_state")   @db.Text // JSON
+  correlationId String?  @map("correlation_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([createdAt])
+  @@index([correlationId])
+}
+
+// ---- Learning Module ----
+model Course {
+  id           String   @id @default(cuid())
+  tenantId     String   @map("tenant_id")
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  title        String
+  description  String?
+  instructorId String   @map("instructor_id")
+  instructor   User     @relation("CourseInstructor", fields: [instructorId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  modules Module[]
+
+  @@index([tenantId])
+  @@index([instructorId])
+  @@index([title])
+}
+
+model Module {
+  id        String   @id @default(cuid())
+  title     String
+  order     Int      @default(0)
+  courseId  String   @map("course_id")
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  lessons Lesson[]
+
+  @@index([courseId])
+  @@index([title])
+}
+
+enum LessonType {
+  TEXT
+  QUIZ
+}
+
+model Lesson {
+  id        String     @id @default(cuid())
+  title     String
+  type      LessonType
+  order     Int        @default(0)
+  moduleId  String     @map("module_id")
+  module    Module     @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+
+  content   TextContent?
+  quiz      Quiz?
+}
+
+model TextContent {
+  id        String   @id @default(cuid())
+  body      String   @db.Text
+  lessonId  String   @unique @map("lesson_id")
+  lesson    Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+}
+
+model Quiz {
+  id        String   @id @default(cuid())
+  lessonId  String   @unique @map("lesson_id")
+  lesson    Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  questions QuizQuestion[]
+  attempts  QuizAttempt[]
+}
+
+model QuizQuestion {
+  id       String   @id @default(cuid())
+  prompt   String   @db.Text
+  options  String[]
+  correctIndex Int  @map("correct_index")
+  quizId   String   @map("quiz_id")
+  quiz     Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  order    Int      @default(0)
+}
+
+model QuizAttempt {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quizId    String   @map("quiz_id")
+  quiz      Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  answers   Int[]
+  score     Int
+  total     Int
+  createdAt DateTime @default(now()) @map("created_at")
+}
+
+// ---- Scheduling (Workflow: requested → approved → assigned → completed) ----
+model InstructorAvailability {
+  id            String   @id @default(cuid())
+  tenantId      String   @map("tenant_id")
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  instructorId  String   @map("instructor_id")
+  instructor    User     @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  dayOfWeek     Int      @map("day_of_week")
+  startTime     String   @map("start_time")
+  endTime       String   @map("end_time")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([instructorId])
+}
+
+enum BookingStatus {
+  REQUESTED   // student requested
+  APPROVED    // admin approved (instructor may not be set yet)
+  ASSIGNED    // instructor assigned
+  COMPLETED
+  CANCELLED
+}
+
+model Booking {
+  id            String        @id @default(cuid())
+  tenantId      String        @map("tenant_id")
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  studentId     String        @map("student_id")
+  student       User          @relation("StudentBookings", fields: [studentId], references: [id], onDelete: Cascade)
+  instructorId  String?       @map("instructor_id")
+  instructor    User?         @relation("InstructorAssignedBookings", fields: [instructorId], references: [id], onDelete: SetNull)
+  status        BookingStatus @default(REQUESTED)
+  date          DateTime      @db.Date
+  startTime     String        @map("start_time")
+  endTime       String        @map("end_time")
+  escalatedAt   DateTime?     @map("escalated_at") // set when escalation job runs
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([studentId])
+  @@index([instructorId])
+  @@index([date, status])
+  @@index([instructorId, date])
+}
+
+// ---- Telemetry: flight event ingestion stub ----
+model FlightEventLog {
+  id            String   @id @default(cuid())
+  tenantId      String   @map("tenant_id")
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  eventType     String   @map("event_type")   // e.g. "flight.start", "flight.land", "simulator.event"
+  payload       Json     // arbitrary flight event data
+  receivedAt    DateTime @default(now()) @map("received_at")
+  correlationId String?  @map("correlation_id")
+  source        String?  // optional client/sensor identifier
+
+  @@index([tenantId])
+  @@index([eventType])
+  @@index([receivedAt])
+}
+
+// ---- Role-based feature flags ----
+model FeatureFlag {
+  id            String   @id @default(cuid())
+  tenantId      String   @map("tenant_id")
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name          String   // e.g. "advanced_analytics", "bulk_export"
+  enabledRoles  String[] @map("enabled_roles") // ["ADMIN", "INSTRUCTOR"]
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+}
