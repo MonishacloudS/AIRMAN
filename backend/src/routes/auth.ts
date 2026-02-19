@@ -130,7 +130,7 @@ router.post("/login", async (req, res) => {
 // Refresh
 router.post("/refresh", async (req, res) => {
   const body = refreshSchema.parse(req.body);
-  const payload = verifyRefreshToken(body.refreshToken);
+  verifyRefreshToken(body.refreshToken);
   const stored = await prisma.refreshToken.findUnique({
     where: { token: body.refreshToken },
     include: { user: true },

@@ -27,7 +27,7 @@ beforeAll(async () => {
     create: { name: "School B", slug: "tenant-test-b" },
   });
   const hash = await bcrypt.hash("admin123", 10);
-  const adminA = await prisma.user.upsert({
+  await prisma.user.upsert({
     where: { tenantId_email: { tenantId: tenantA.id, email: "admin-a@test.local" } },
     update: {},
     create: {
@@ -38,7 +38,7 @@ beforeAll(async () => {
       approved: true,
     },
   });
-  const adminB = await prisma.user.upsert({
+  await prisma.user.upsert({
     where: { tenantId_email: { tenantId: tenantB.id, email: "admin-b@test.local" } },
     update: {},
     create: {

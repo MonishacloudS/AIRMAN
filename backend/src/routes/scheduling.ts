@@ -109,7 +109,7 @@ router.get("/bookings", authMiddleware, async (req: AuthRequest, res) => {
   const tenantId = req.user!.tenantId;
   const role = req.user!.role;
   const weekStart = req.query.weekStart as string | undefined;
-  let where: Record<string, unknown> = { tenantId };
+  const where: Record<string, unknown> = { tenantId };
   if (role === "STUDENT") where.studentId = req.user!.id;
   if (role === "INSTRUCTOR") where.instructorId = req.user!.id;
   if (weekStart) {
@@ -222,7 +222,7 @@ router.get("/calendar", authMiddleware, cache, async (req: AuthRequest, res) => 
   const start = new Date(weekStart + "T00:00:00Z");
   const end = new Date(start);
   end.setDate(end.getDate() + 7);
-  let where: Record<string, unknown> = { tenantId, date: { gte: start, lt: end } };
+  const where: Record<string, unknown> = { tenantId, date: { gte: start, lt: end } };
   if (req.user!.role === "STUDENT") where.studentId = req.user!.id;
   if (req.user!.role === "INSTRUCTOR") where.instructorId = req.user!.id;
   const bookings = await prisma.booking.findMany({
