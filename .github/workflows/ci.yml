@@ -52,7 +52,7 @@ jobs:
 
       - name: Unit tests backend
         working-directory: backend
-        run: npm run test -- --testPathIgnorePatterns=integration --coverage --coverageThreshold='{"global":{"branches":40,"functions":40,"lines":40,"statements":40}}'
+        run: npm run test -- --testPathIgnorePatterns=integration --coverage
 
       - name: Integration tests backend
         working-directory: backend

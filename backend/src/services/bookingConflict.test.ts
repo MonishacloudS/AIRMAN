@@ -36,11 +36,13 @@ describe("hasBookingConflict", () => {
     expect(result).toBe(false);
     expect(mockFindFirst).toHaveBeenCalledWith(
       expect.objectContaining({
-        tenantId: "tenant-1",
-        instructorId: "instructor-1",
-        status: { in: ["APPROVED", "ASSIGNED", "COMPLETED"] },
-        startTime: { lt: "10:00" },
-        endTime: { gt: "09:00" },
+        where: expect.objectContaining({
+          tenantId: "tenant-1",
+          instructorId: "instructor-1",
+          status: { in: ["APPROVED", "ASSIGNED", "COMPLETED"] },
+          startTime: { lt: "10:00" },
+          endTime: { gt: "09:00" },
+        }),
       })
     );
   });
@@ -58,7 +60,9 @@ describe("hasBookingConflict", () => {
     await hasBookingConflict("tenant-1", "instructor-1", date, "09:00", "10:00", "booking-99");
     expect(mockFindFirst).toHaveBeenCalledWith(
       expect.objectContaining({
-        id: { not: "booking-99" },
+        where: expect.objectContaining({
+          id: { not: "booking-99" },
+        }),
       })
     );
   });
