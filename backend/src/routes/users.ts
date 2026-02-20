@@ -35,8 +35,12 @@ router.post("/instructors", authMiddleware, requireRole("ADMIN"), async (req: Au
 
 // Admin: list students (tenant-scoped)
 router.get("/students", authMiddleware, requireRole("ADMIN"), async (req: AuthRequest, res) => {
+  const tenantId = req.user?.tenantId;
+  if (!tenantId) {
+    throw new AppError(401, "Tenant not found. Please log in again.");
+  }
   const students = await prisma.user.findMany({
-    where: { tenantId: req.user!.tenantId, role: "STUDENT" },
+    where: { tenantId, role: "STUDENT" },
     select: { id: true, email: true, approved: true, createdAt: true },
     orderBy: { createdAt: "desc" },
   });

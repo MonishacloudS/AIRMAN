@@ -18,13 +18,17 @@ export default function RegisterPage() {
   const router = useRouter();
 
   useEffect(() => {
-    fetch(`${API_URL}/api/auth/tenants`).then((r) => r.json()).then(setTenants).catch(() => {});
+    fetch(`${API_URL}/api/auth/tenants`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => setTenants(Array.isArray(data) ? data : []))
+      .catch(() => setTenants([]));
   }, []);
 
-  if (user) {
-    router.replace("/dashboard");
-    return null;
-  }
+  useEffect(() => {
+    if (user) router.replace("/dashboard");
+  }, [user, router]);
+
+  if (user) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

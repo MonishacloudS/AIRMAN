@@ -97,6 +97,8 @@ Open http://localhost:3000.
 
 Login/register require **tenantId** (from `GET /api/auth/tenants`).
 
+**Seed data** includes **2–6 courses per tenant**: Alpha has 4 courses (Introduction to Flight, Navigation & Instruments, Weather for Pilots, Regulations & Airspace); Bravo has 3 (Private Pilot Ground, Cross-Country Planning, Radio Communications). Each course has one or more **modules** and at least one **quiz** lesson where applicable. The Courses page in the dashboard shows these with **pagination** (10 per page) and a **Create course** button for Admin and Instructor.
+
 ## Key technical decisions
 
 - **Multi-tenancy**: Shared DB + `tenant_id` on every row (documented in DEPLOYMENT.md). Chosen over separate schema/DB for simplicity and cost; all queries and mutations scoped by tenant; JWT includes tenantId.
@@ -106,6 +108,7 @@ Login/register require **tenantId** (from `GET /api/auth/tenants`).
 - **Caching**: In-memory TTL (default 1 min) for GET courses list, GET course by id, GET calendar. Key includes tenantId so tenants never share cache.
 - **Rate limiting**: Auth endpoints 20 req/15 min per IP; booking mutations 30 req/1 min per IP.
 - **Validation**: Zod on all API inputs; structured `AppError` and global error handler.
+- **Learning (courses)**: Courses are created by **Admin** (with instructor assignment) or **Instructor** (self). Dashboard **Courses** page offers paginated list, search, and a **Create course** form (Admin sees an instructor dropdown). Course detail page lists modules and lessons (TEXT/QUIZ); quiz attempts are stored and scored.
 
 ## DB indexes
 
@@ -145,16 +148,25 @@ Base URL: `http://localhost:4000` (or your backend URL).
 
 ### Courses (Learning)
 
+Courses are tenant-scoped and consist of **modules**, each containing **lessons** (TEXT or QUIZ). The dashboard **Courses** page lists courses with **pagination** (default 10 per page) and optional search by title.
+
+**Course creation**
+
+- **Admin**: Can create a course and must assign an **instructor** (same tenant). Use `POST /api/courses` with body `{ title, description?, instructorId }`.
+- **Instructor**: Can create a course and is set as its instructor. Use `POST /api/courses` with body `{ title, description? }` (no `instructorId`).
+
+Admins can also create modules and lessons for any course in their tenant; instructors can only add modules/lessons to courses they instruct.
+
 | Method | Path                                  | Role       | Description            |
 |--------|---------------------------------------|------------|------------------------|
 | GET    | /api/courses?page=1&limit=10&search=  | All        | List courses (paginated, search) |
 | GET    | /api/courses/:id                      | All        | Get course + modules + lessons    |
-| POST   | /api/courses                          | INSTRUCTOR | Create course          |
-| POST   | /api/courses/:courseId/modules        | INSTRUCTOR | Create module          |
+| POST   | /api/courses                          | ADMIN, INSTRUCTOR | Create course. Admin: body must include `instructorId`; Instructor: optional `title`, `description?`. |
+| POST   | /api/courses/:courseId/modules        | ADMIN, INSTRUCTOR | Create module: `{ title, order? }` |
 | GET    | /api/courses/:courseId/modules        | All        | List modules (paginated, search)  |
-| POST   | /api/courses/:courseId/modules/:moduleId/lessons | INSTRUCTOR | Create lesson (TEXT/QUIZ) |
+| POST   | /api/courses/:courseId/modules/:moduleId/lessons | ADMIN, INSTRUCTOR | Create lesson (TEXT or QUIZ). TEXT: `{ title, type: "TEXT", body?, order? }`; QUIZ: `{ title, type: "QUIZ", questions?: [{ prompt, options[], correctIndex }], order? }`. |
 | GET    | /api/courses/lessons/:lessonId         | All        | Get lesson (content or quiz)     |
-| POST   | /api/courses/lessons/:lessonId/quiz/attempt | STUDENT | Submit quiz answers    |
+| POST   | /api/courses/lessons/:lessonId/quiz/attempt | STUDENT | Submit quiz: `{ answers: number[] }` |
 | GET    | /api/courses/lessons/:lessonId/quiz/attempts | STUDENT | My attempts           |
 
 ### Scheduling
@@ -209,6 +221,24 @@ curl -X POST http://localhost:4000/api/auth/login \
 ```bash
 curl http://localhost:4000/api/courses?page=1&limit=5 \
   -H "Authorization: Bearer <ACCESS_TOKEN>"
+```
+
+**Create course (Instructor — self as instructor)**
+
+```bash
+curl -X POST http://localhost:4000/api/courses \
+  -H "Authorization: Bearer <INSTRUCTOR_ACCESS_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Advanced Maneuvers","description":"Spins and stalls recovery"}'
+```
+
+**Create course (Admin — assign instructor)**
+
+```bash
+curl -X POST http://localhost:4000/api/courses \
+  -H "Authorization: Bearer <ADMIN_ACCESS_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"New Ground School","description":"PPL theory","instructorId":"<INSTRUCTOR_USER_ID>"}'
 ```
 
 **Request booking (student)**

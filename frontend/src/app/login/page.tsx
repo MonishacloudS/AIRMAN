@@ -16,16 +16,18 @@ export default function LoginPage() {
   const router = useRouter();
 
   useEffect(() => {
-    fetch((process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000") + "/api/auth/tenants")
-      .then((r) => r.json())
-      .then(setTenants)
-      .catch(() => {});
+    const url = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000") + "/api/auth/tenants";
+    fetch(url)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => setTenants(Array.isArray(data) ? data : []))
+      .catch(() => setTenants([]));
   }, []);
 
-  if (user) {
-    router.replace("/dashboard");
-    return null;
-  }
+  useEffect(() => {
+    if (user) router.replace("/dashboard");
+  }, [user, router]);
+
+  if (user) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

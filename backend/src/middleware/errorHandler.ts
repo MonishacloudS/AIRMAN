@@ -25,8 +25,9 @@ export function errorHandler(
     return;
   }
   console.error(err);
+  const message = err instanceof Error ? err.message : "Internal server error";
   res.status(500).json({
-    error: "Internal server error",
+    error: process.env.NODE_ENV === "production" ? "Internal server error" : message,
     code: "INTERNAL_ERROR",
   });
 }

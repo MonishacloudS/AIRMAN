@@ -60,17 +60,30 @@ router.get("/:id", authMiddleware, cache, async (req: AuthRequest, res) => {
   res.json(course);
 });
 
-// Instructor: create course (tenant-scoped + audit)
+// Instructor or Admin: create course (tenant-scoped + audit). Admin must pass instructorId.
 const createCourseSchema = z.object({
   title: z.string().min(1),
   description: z.string().optional(),
+  instructorId: z.string().optional(),
 });
 
-router.post("/", authMiddleware, requireRole("INSTRUCTOR"), async (req: AuthRequest, res) => {
+router.post("/", authMiddleware, requireRole("INSTRUCTOR", "ADMIN"), async (req: AuthRequest, res) => {
   const body = createCourseSchema.parse(req.body);
   const tenantId = req.user!.tenantId;
+  const role = req.user!.role;
+  let instructorId: string;
+  if (role === "ADMIN") {
+    if (!body.instructorId) throw new AppError(400, "Admin must assign an instructor (instructorId)");
+    const instructor = await prisma.user.findFirst({
+      where: { id: body.instructorId, tenantId, role: "INSTRUCTOR" },
+    });
+    if (!instructor) throw new AppError(400, "Instructor not found in this tenant");
+    instructorId = body.instructorId;
+  } else {
+    instructorId = req.user!.id;
+  }
   const course = await prisma.course.create({
-    data: { ...body, tenantId, instructorId: req.user!.id },
+    data: { title: body.title, description: body.description ?? null, tenantId, instructorId },
     include: { instructor: { select: { id: true, email: true } } },
   });
   await auditLog({
@@ -79,7 +92,7 @@ router.post("/", authMiddleware, requireRole("INSTRUCTOR"), async (req: AuthRequ
     action: "course.create",
     resourceType: "course",
     resourceId: course.id,
-    afterState: { title: course.title },
+    afterState: { title: course.title, instructorId },
     correlationId: req.correlationId,
   });
   res.status(201).json(course);
@@ -91,11 +104,12 @@ const createModuleSchema = z.object({
   order: z.number().int().min(0).optional(),
 });
 
-router.post("/:courseId/modules", authMiddleware, requireRole("INSTRUCTOR"), async (req: AuthRequest, res) => {
+router.post("/:courseId/modules", authMiddleware, requireRole("INSTRUCTOR", "ADMIN"), async (req: AuthRequest, res) => {
   const { courseId } = req.params;
   const body = createModuleSchema.parse(req.body);
+  const tenantId = req.user!.tenantId;
   const course = await prisma.course.findFirst({
-    where: { id: courseId, tenantId: req.user!.tenantId, instructorId: req.user!.id },
+    where: { id: courseId, tenantId, ...(req.user!.role === "INSTRUCTOR" ? { instructorId: req.user!.id } : {}) },
   });
   if (!course) throw new AppError(404, "Course not found");
   const module_ = await prisma.module.create({
@@ -133,11 +147,12 @@ const createLessonSchema = z.object({
   })).optional(), // for QUIZ
 });
 
-router.post("/:courseId/modules/:moduleId/lessons", authMiddleware, requireRole("INSTRUCTOR"), async (req: AuthRequest, res) => {
+router.post("/:courseId/modules/:moduleId/lessons", authMiddleware, requireRole("INSTRUCTOR", "ADMIN"), async (req: AuthRequest, res) => {
   const { courseId, moduleId } = req.params;
   const body = createLessonSchema.parse(req.body);
+  const tenantId = req.user!.tenantId;
   const course = await prisma.course.findFirst({
-    where: { id: courseId, tenantId: req.user!.tenantId, instructorId: req.user!.id },
+    where: { id: courseId, tenantId, ...(req.user!.role === "INSTRUCTOR" ? { instructorId: req.user!.id } : {}) },
   });
   if (!course) throw new AppError(404, "Course not found");
   const module_ = await prisma.module.findFirst({ where: { id: moduleId, courseId } });

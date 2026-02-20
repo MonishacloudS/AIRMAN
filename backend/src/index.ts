@@ -2,7 +2,7 @@ import "express-async-errors";
 import express from "express";
 import cors from "cors";
 import { correlationIdMiddleware } from "./middleware/correlationId";
-import { rateLimit } from "./middleware/rateLimit";
+//import { rateLimit } from "./middleware/rateLimit";
 import { authRouter } from "./routes/auth";
 import { usersRouter } from "./routes/users";
 import { coursesRouter } from "./routes/courses";
@@ -17,8 +17,9 @@ app.use(cors({ origin: process.env.FRONTEND_URL || "http://localhost:3000", cred
 app.use(express.json());
 app.use(correlationIdMiddleware);
 
-// Rate limit: auth endpoints (20 per 15 min per IP)
-app.use("/api/auth", rateLimit({ windowMs: 15 * 60 * 1000, max: 20, message: "Too many auth attempts" }), authRouter);
+// Rate limit: auth endpoints (20 per 15 min per IP) — commented for testing
+// app.use("/api/auth", rateLimit({ windowMs: 15 * 60 * 1000, max: 20, message: "Too many auth attempts" }), authRouter);
+app.use("/api/auth", authRouter);
 app.use("/api/users", usersRouter);
 app.use("/api/courses", coursesRouter);
 app.use("/api/scheduling", schedulingRouter);

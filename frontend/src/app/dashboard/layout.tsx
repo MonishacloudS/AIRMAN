@@ -12,10 +12,11 @@ function DashboardNav() {
   const router = useRouter();
   const { hasFlag } = useFeatureFlags();
 
-  if (!user) {
-    router.replace("/login");
-    return null;
-  }
+  React.useEffect(() => {
+    if (!user) router.replace("/login");
+  }, [user, router]);
+
+  if (!user) return null;
 
   const nav = [
     { href: "/dashboard", label: "Home" },
@@ -62,12 +63,16 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
-  if (!user) {
-    router.replace("/login");
-    return null;
-  }
+
+  React.useEffect(() => {
+    if (!loading && !user) router.replace("/login");
+  }, [loading, user, router]);
+
+  if (loading) return <div className="container" style={{ padding: "2rem", color: "#94a3b8" }}>Loading...</div>;
+  if (!user) return null;
+
   return (
     <FeatureFlagsProvider>
       <DashboardNav />
